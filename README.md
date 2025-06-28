@@ -97,4 +97,4 @@ chaskiway/
 ## 📞 Contacto
 
 Para más información o colaboración, escribe a:  
-**jjvillegasv@lamolina.edu.pe**  
+**20231515@lamolina.edu.pe**  
