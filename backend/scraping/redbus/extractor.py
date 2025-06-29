@@ -1,4 +1,4 @@
-# Contenido para: backend/scraping/redbus/extractor.py
+# Contenido CORREGIDO para: backend/scraping/redbus/extractor.py
 
 import os
 import json
@@ -8,7 +8,6 @@ import logging
 from datetime import datetime
 import requests
 
-# --- ESTA ES LA ÚNICA LÍNEA MODIFICADA ---
 from .config.config import HEADERS, COOKIES, BODY
 
 def scrape_redbus(from_city_id, to_city_id, from_name, to_name, date_str, output_dir):
@@ -16,7 +15,6 @@ def scrape_redbus(from_city_id, to_city_id, from_name, to_name, date_str, output
     Realiza scraping a la API de RedBus y guarda el JSON crudo aunque no haya viajes,
     para poder inspeccionar la estructura de la respuesta.
     """
-
     try:
         date_obj = datetime.strptime(date_str, "%d-%b-%Y")
     except ValueError:
@@ -25,18 +23,36 @@ def scrape_redbus(from_city_id, to_city_id, from_name, to_name, date_str, output
 
     os.makedirs(output_dir, exist_ok=True)
 
-    url = (
-        f"https://www.redbus.pe/search/SearchV4Results"
-        f"?fromCity={from_city_id}&toCity={to_city_id}"
-        f"&src={from_name.replace(' ', '%20')}&dst={to_name.replace(' ', '%20')}"
-        f"&DOJ={date_str}§ionId=0&groupId=0"
-        f"&limit=20&offset=0&sort=0&sortOrder=0&meta=true&returnSearch=0"
-    )
+    # --- INICIO DE LA MODIFICACIÓN ---
+
+    # 1. Definimos la URL base sin parámetros
+    base_url = "https://www.redbus.pe/search/SearchV4Results"
+
+    # 2. Creamos un diccionario con todos los parámetros de la URL
+    params = {
+        "fromCity": from_city_id,
+        "toCity": to_city_id,
+        "src": from_name,
+        "dst": to_name,
+        "DOJ": date_str,
+        "sectionId": 0,
+        "groupId": 0,
+        "limit": 20,
+        "offset": 0,
+        "sort": 0,
+        "sortOrder": 0,
+        "meta": "true",
+        "returnSearch": 0,
+    }
 
     logging.info(f"🔍 Buscando: {from_name} → {to_name} | Fecha: {date_str}")
 
     try:
-        response = requests.post(url, headers=HEADERS, cookies=COOKIES, json=BODY, timeout=15)
+        # 3. Pasamos la URL base y el diccionario de 'params' a requests.
+        # La librería se encargará de construir la URL final correctamente.
+        response = requests.post(base_url, params=params, headers=HEADERS, cookies=COOKIES, json=BODY, timeout=15)
+
+    # --- FIN DE LA MODIFICACIÓN ---
 
         if response.status_code == 429:
             logging.warning("⚠️ Código 429: Rate limiting. Aumentando delay.")
@@ -48,7 +64,7 @@ def scrape_redbus(from_city_id, to_city_id, from_name, to_name, date_str, output
             return
 
         logging.info(f"📡 Código de estado: {response.status_code}")
-        response.raise_for_status()
+        response.raise_for_status() # Esto es lo que lanza el error con el código 500
 
         data = response.json()
 
@@ -61,19 +77,21 @@ def scrape_redbus(from_city_id, to_city_id, from_name, to_name, date_str, output
 
         logging.info(f"📁 Archivo (debug) guardado: {output_path}")
 
-        # Intentamos acceder al campo "onwardflights" (de antes) o dejamos vacío
-        results = data.get("onwardflights", [])  # Este campo ya no sirve, es temporal
+        # Intentamos acceder al campo "inventories"
+        results = data.get("inventories", [])
         if not results:
-            logging.warning("⚠️ No se encontraron viajes o estructura inesperada.")
-            return
-
-        logging.info(f"✅ {len(results)} resultados encontrados")
+            logging.warning("⚠️ No se encontraron viajes o estructura de API inesperada.")
+            # No retornamos, para que el bucle continúe con la siguiente fecha
+        else:
+            logging.info(f"✅ {len(results)} resultados encontrados")
 
     except requests.exceptions.Timeout:
         logging.error("⏱️ Timeout: El servidor no respondió a tiempo.")
     except requests.RequestException as e:
+        # El error 500 se captura aquí
         logging.error(f"❌ Error de red: {e}")
     except Exception as e:
         logging.error(f"❌ Error inesperado: {e}")
 
+    # El sleep se ejecuta incluso si hay un error, para no martillar el servidor
     time.sleep(random.uniform(5, 10))
