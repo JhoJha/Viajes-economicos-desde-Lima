@@ -1,8 +1,8 @@
-# Contenido COMPLETO y FINAL para: app.py (con Estética Optimizada)
+# Contenido COMPLETO, FINAL y FUNCIONAL para: app.py
 
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import sys
 from pathlib import Path
 
@@ -26,25 +26,64 @@ def get_data():
 
 df_viajes = get_data()
 
-# --- FUNCIÓN DEL TERMÓMETRO DE PRECIOS ---
+# --- FUNCIONES DE AYUDA ---
 def get_price_indicator(price, avg_price):
-    if avg_price is None or pd.isna(avg_price) or avg_price == 0:
-        return ""
-    
+    if avg_price is None or pd.isna(avg_price) or avg_price == 0: return ""
     diff_percent = ((price - avg_price) / avg_price) * 100
-    
-    if diff_percent < -10:
-        return f"<span class='price-indicator price-good'>¡Oferta! {diff_percent:.0f}%</span>"
-    elif diff_percent > 10:
-        return f"<span class='price-indicator price-high'>+{diff_percent:.0f}%</span>"
-    else:
-        return f"<span class='price-indicator price-normal'>Precio normal</span>"
+    if diff_percent < -10: return f"<span class='price-indicator price-good'>¡Oferta! {diff_percent:.0f}%</span>"
+    elif diff_percent > 10: return f"<span class='price-indicator price-high'>+{diff_percent:.0f}%</span>"
+    else: return f"<span class='price-indicator price-normal'>Precio normal</span>"
 
-# --- 2. ESTILOS MEJORADOS Y OPTIMIZADOS ---
+def format_time_am_pm(time_str_24h):
+    if not time_str_24h or not isinstance(time_str_24h, str): return "N/A"
+    try:
+        return datetime.strptime(time_str_24h, '%H:%M:%S').strftime('%I:%M %p')
+    except ValueError:
+        return time_str_24h
+
+def find_round_trips(df_ida, df_vuelta):
+    """
+    Encuentra las mejores combinaciones de viaje redondo.
+    Prioriza la misma empresa, luego las más baratas.
+    """
+    combinaciones = []
+    
+    empresas_comunes = set(df_ida['empresa']).intersection(set(df_vuelta['empresa']))
+    for empresa in empresas_comunes:
+        viajes_ida_empresa = df_ida[df_ida['empresa'] == empresa]
+        viajes_vuelta_empresa = df_vuelta[df_vuelta['empresa'] == empresa]
+        
+        for _, ida_row in viajes_ida_empresa.iterrows():
+            for _, vuelta_row in viajes_vuelta_empresa.iterrows():
+                combinaciones.append({
+                    'empresa_ida': empresa, 'empresa_vuelta': empresa,
+                    'precio_total': ida_row['precio_min'] + vuelta_row['precio_min'],
+                    'score_combinado': (ida_row['score'] + vuelta_row['score']) / 2,
+                    'ida': ida_row, 'vuelta': vuelta_row
+                })
+
+    top_ida = df_ida.nsmallest(3, 'precio_min')
+    top_vuelta = df_vuelta.nsmallest(3, 'precio_min')
+    for _, ida_row in top_ida.iterrows():
+        for _, vuelta_row in top_vuelta.iterrows():
+            if not any(c['ida']['viaje_id'] == ida_row['viaje_id'] and c['vuelta']['viaje_id'] == vuelta_row['viaje_id'] for c in combinaciones):
+                combinaciones.append({
+                    'empresa_ida': ida_row['empresa'], 'empresa_vuelta': vuelta_row['empresa'],
+                    'precio_total': ida_row['precio_min'] + vuelta_row['precio_min'],
+                    'score_combinado': (ida_row['score'] + vuelta_row['score']) / 2,
+                    'ida': ida_row, 'vuelta': vuelta_row
+                })
+    
+    if not combinaciones:
+        return pd.DataFrame()
+
+    df_combinaciones = pd.DataFrame(combinaciones)
+    return df_combinaciones.sort_values('score_combinado', ascending=False)
+
+# --- 2. ESTILOS Y HEADER ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 :root {
     --primary-color: #c7463c; --primary-light: #e8554a; --accent-color: #f7931e;
     --text-primary: #1a1a1a; --text-secondary: #6b7280; --text-muted: #9ca3af;
@@ -56,7 +95,6 @@ st.markdown("""
     --spacing-sm: 16px; --spacing-md: 24px; --spacing-lg: 32px; --spacing-xl: 48px;
     --transition: all 0.2s ease;
 }
-
 * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
 .main .block-container { background: var(--background); padding-top: var(--spacing-md); padding-bottom: var(--spacing-lg); max-width: 1200px; }
 .main-header { text-align: center; padding: var(--spacing-md) var(--spacing-lg); margin-bottom: var(--spacing-lg); background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%); border-radius: var(--radius-lg); color: white; box-shadow: var(--shadow-md); }
@@ -87,7 +125,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header
 st.markdown("""
 <div class="main-header">
     <h1>🚌 Chaskiway</h1>
@@ -111,7 +148,7 @@ with tabs[0]:
             
             modo_viaje = st.radio(
                 "Tipo de viaje:",
-                ["✈️ Solo Ida", "🔄 Viaje Redondo (Próximamente)"],
+                ["✈️ Solo Ida", "🔄 Viaje Redondo"],
                 horizontal=True
             )
             
@@ -124,23 +161,23 @@ with tabs[0]:
 
             with col_ruta2:
                 destinos_posibles = sorted(df_viajes[df_viajes['origen'] == origen_seleccionado]['destino'].unique())
-                opciones_destino = ["Cualquier destino"] + destinos_posibles
+                if modo_viaje == "✈️ Solo Ida":
+                    opciones_destino = ["Cualquier destino"] + destinos_posibles
+                else:
+                    opciones_destino = destinos_posibles
                 destino_seleccionado = st.selectbox("🎯 Destino", opciones_destino)
 
             st.markdown('<div class="content-spacing"></div>', unsafe_allow_html=True)
 
-            if modo_viaje == "✈️ Solo Ida":
-                col_fecha, col_presupuesto, col_clima = st.columns(3, gap="large")
-                with col_fecha:
-                    fecha_ida = st.date_input("🗓️ Fecha de viaje", value=date(2025, 7, 15), min_value=date.today())
-                with col_presupuesto:
-                    precio_max_disponible = int(df_viajes['precio_min'].max())
-                    presupuesto = st.slider("💰 Presupuesto máximo (S/.)", 0, precio_max_disponible, 150, 10)
-                with col_clima:
-                    clima = st.selectbox("☀️ Clima preferido", ["Cualquiera", "Cálido", "Templado", "Frío"])
-            else:
-                # Placeholder para viaje redondo
-                st.info("La búsqueda de viajes redondos estará disponible pronto.")
+            col_fecha1, col_fecha2, col_presupuesto = st.columns(3, gap="large")
+            with col_fecha1:
+                fecha_ida = st.date_input("🗓️ Fecha de ida", value=date(2025, 7, 15), min_value=date.today())
+            with col_fecha2:
+                if modo_viaje == "🔄 Viaje Redondo":
+                    fecha_vuelta = st.date_input("🗓️ Fecha de vuelta", value=fecha_ida + timedelta(days=7), min_value=fecha_ida)
+            with col_presupuesto:
+                precio_max_disponible = int(df_viajes['precio_min'].max())
+                presupuesto = st.slider("💰 Presupuesto por tramo (S/.)", 0, precio_max_disponible, 150, 10)
 
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -148,6 +185,7 @@ with tabs[0]:
         
         if st.button("🔍 Buscar Viajes", type="primary", use_container_width=True):
             
+            # --- LÓGICA PARA MODO SOLO IDA ---
             if modo_viaje == "✈️ Solo Ida":
                 fecha_ida_ts = pd.to_datetime(fecha_ida)
                 
@@ -170,6 +208,8 @@ with tabs[0]:
                             st.markdown(f'<div class="success-message">🎉 Encontramos {len(resultados_filtrados)} opciones de {origen_seleccionado} a {destino_seleccionado}</div>', unsafe_allow_html=True)
                             for _, row in resultados_filtrados.iterrows():
                                 price_indicator_html = get_price_indicator(row['precio_min'], row['precio_promedio_ruta'])
+                                hora_salida_ampm = format_time_am_pm(row['hora_salida_programada'])
+                                hora_llegada_ampm = format_time_am_pm(row['hora_llegada_programada'])
                                 st.markdown(f"""
                                 <div class="destination-card">
                                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--spacing-sm);">
@@ -180,28 +220,24 @@ with tabs[0]:
                                         <div class="price-primary">S/ {row['precio_min']:.0f}</div>
                                         {price_indicator_html}
                                     </div>
-                                    <div class="trip-details">
-                                        <div class="trip-detail-item">🚌 {row['tipo_bus']}</div>
-                                        <div class="trip-detail-item">⏰ {row['hora_salida_programada']} → {row['hora_llegada_programada']}</div>
-                                    </div>
+                                    <div class="trip-details"><div class="trip-detail-item">🚌 {row['tipo_bus']}</div><div class="trip-detail-item">⏰ {hora_salida_ampm} → {hora_llegada_ampm}</div></div>
                                 </div>
                                 """, unsafe_allow_html=True)
                         else:
                             st.markdown(f'<div class="warning-message">No encontramos viajes a {destino_seleccionado} con tus criterios.</div>', unsafe_allow_html=True)
-                    
                     else:
                         destinos_encontrados = resultados['destino'].unique()
                         st.markdown(f'<div class="success-message">🎉 Encontramos {len(destinos_encontrados)} destinos desde {origen_seleccionado}</div>', unsafe_allow_html=True)
                         st.info("💡 Haz clic en un destino para ver todas las opciones disponibles")
-
                         for destino in destinos_encontrados:
                             viajes_a_destino = resultados[resultados['destino'] == destino]
                             precio_mas_bajo = viajes_a_destino['precio_min'].min()
                             mejor_rating = viajes_a_destino['rating'].max()
-                            
                             with st.expander(f"📍 **{destino}** • Desde S/ {precio_mas_bajo:.0f} • Rating {mejor_rating:.1f}⭐ • {len(viajes_a_destino)} opciones"):
                                 for _, row in viajes_a_destino.iterrows():
                                     price_indicator_html = get_price_indicator(row['precio_min'], row['precio_promedio_ruta'])
+                                    hora_salida_ampm = format_time_am_pm(row['hora_salida_programada'])
+                                    hora_llegada_ampm = format_time_am_pm(row['hora_llegada_programada'])
                                     st.markdown(f"""
                                     <div class="destination-card">
                                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--spacing-sm);">
@@ -212,17 +248,65 @@ with tabs[0]:
                                             <div class="price-primary">S/ {row['precio_min']:.0f}</div>
                                             {price_indicator_html}
                                         </div>
-                                        <div class="trip-details">
-                                            <div class="trip-detail-item">🚌 {row['tipo_bus']}</div>
-                                            <div class="trip-detail-item">⏰ {row['hora_salida_programada']} → {row['hora_llegada_programada']}</div>
-                                        </div>
+                                        <div class="trip-details"><div class="trip-detail-item">🚌 {row['tipo_bus']}</div><div class="trip-detail-item">⏰ {hora_salida_ampm} → {hora_llegada_ampm}</div></div>
                                     </div>
                                     """, unsafe_allow_html=True)
                 else:
                     st.markdown('<div class="warning-message">😔 No encontramos viajes con tus criterios. Intenta ser más flexible.</div>', unsafe_allow_html=True)
             
-            else:
-                st.info("🚧 La búsqueda de viajes redondos estará disponible pronto")
+            # --- LÓGICA PARA MODO VIAJE REDONDO ---
+            elif modo_viaje == "🔄 Viaje Redondo":
+                st.markdown('<div class="section-spacing"></div>', unsafe_allow_html=True)
+                
+                fecha_ida_ts = pd.to_datetime(fecha_ida)
+                df_ida = df_viajes[(df_viajes['origen'] == origen_seleccionado) & (df_viajes['destino'] == destino_seleccionado) & (df_viajes['precio_min'] <= presupuesto) & (df_viajes['fecha_salida'] == fecha_ida_ts)].copy()
+
+                fecha_vuelta_ts = pd.to_datetime(fecha_vuelta)
+                df_vuelta = df_viajes[(df_viajes['origen'] == destino_seleccionado) & (df_viajes['destino'] == origen_seleccionado) & (df_viajes['precio_min'] <= presupuesto) & (df_viajes['fecha_salida'] == fecha_vuelta_ts)].copy()
+
+                if df_ida.empty or df_vuelta.empty:
+                    st.markdown('<div class="warning-message">No se encontraron viajes de ida o de vuelta para las fechas y filtros seleccionados.</div>', unsafe_allow_html=True)
+                else:
+                    df_ida['score'] = ((df_ida['rating'].fillna(3.0) * 15) - (df_ida['precio_min'] * 0.6) + (df_ida['tiene_oferta'].fillna(0) * 25))
+                    df_vuelta['score'] = ((df_vuelta['rating'].fillna(3.0) * 15) - (df_vuelta['precio_min'] * 0.6) + (df_vuelta['tiene_oferta'].fillna(0) * 25))
+
+                    df_resultados_redondos = find_round_trips(df_ida, df_vuelta)
+
+                    if df_resultados_redondos.empty:
+                        st.markdown('<div class="warning-message">No se pudieron encontrar combinaciones de viaje redondo con los criterios actuales.</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div class="success-message">🎉 ¡Encontramos {len(df_resultados_redondos)} excelentes opciones de viaje redondo!</div>', unsafe_allow_html=True)
+                        
+                        for _, combo in df_resultados_redondos.head(10).iterrows():
+                            ida = combo['ida']
+                            vuelta = combo['vuelta']
+                            
+                            st.markdown(f"""
+                            <div class="destination-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: var(--spacing-sm); margin-bottom: var(--spacing-sm);">
+                                    <div>
+                                        <div class="company-name">
+                                            {ida['empresa'] if ida['empresa'] == vuelta['empresa'] else f"{ida['empresa']} / {vuelta['empresa']}"}
+                                        </div>
+                                        <div class="rating-badge">{(ida['rating'] + vuelta['rating'])/2:.1f} ⭐ (Promedio)</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <span class="price-secondary">Total por persona</span>
+                                        <div class="price-primary">S/ {combo['precio_total']:.0f}</div>
+                                    </div>
+                                </div>
+                                <div class="trip-details" style="margin-top: 0;">
+                                    <div style="flex-basis: 100%; margin-bottom: var(--spacing-xs);">
+                                        <b>✈️ Ida:</b> {format_time_am_pm(ida['hora_salida_programada'])} → {format_time_am_pm(ida['hora_llegada_programada'])}
+                                        <span style="float: right; font-weight: 600;">S/ {ida['precio_min']:.0f}</span>
+                                    </div>
+                                    <div style="flex-basis: 100%;">
+                                        <b>🔄 Vuelta:</b> {format_time_am_pm(vuelta['hora_salida_programada'])} → {format_time_am_pm(vuelta['hora_llegada_programada'])}
+                                        <span style="float: right; font-weight: 600;">S/ {vuelta['precio_min']:.0f}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
 # --- 5. PESTAÑA DE ANALYTICS ---
 with tabs[1]:
