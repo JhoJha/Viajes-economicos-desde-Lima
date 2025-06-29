@@ -4,15 +4,15 @@ import logging
 
 def crear_tablas(db_path):
     """
-    Crea las tablas necesarias en la base de datos SQLite si no existen,
-    implementando el modelo de datos con historial de snapshots.
+    Crea/verifica el esquema completo de la base de datos, incluyendo las nuevas
+    columnas para ofertas y características del bus.
     """
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute("PRAGMA foreign_keys = ON;")
 
-        # --- TABLAS DE CATÁLOGO (Información que no cambia a menudo) ---
+        # --- TABLAS DE CATÁLOGO ---
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS rutas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +44,7 @@ def crear_tablas(db_path):
         );
         """)
 
-        # --- TABLA DE VIAJES (Catálogo de viajes estáticos) ---
+        # --- TABLA DE VIAJES (Catálogo estático MEJORADO) ---
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS viajes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,13 +55,17 @@ def crear_tablas(db_path):
             hora_llegada_programada TEXT NOT NULL,
             duracion_programada_min INTEGER,
             tipo_bus TEXT,
+            es_ac BOOLEAN,
+            es_seater BOOLEAN,
+            es_sleeper BOOLEAN,
+            asientos_totales INTEGER,
             FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
             FOREIGN KEY (ruta_id) REFERENCES rutas(id) ON DELETE CASCADE,
             UNIQUE(empresa_id, ruta_id, fecha_salida, hora_salida_programada, tipo_bus)
         );
         """)
 
-        # --- NUEVA TABLA DE HISTORIAL (Información dinámica) ---
+        # --- TABLA DE HISTORIAL (Dinámica y MEJORADA) ---
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS historial_viajes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,13 +74,17 @@ def crear_tablas(db_path):
             precio_min REAL,
             precio_max REAL,
             asientos_disponibles INTEGER,
+            tiene_oferta BOOLEAN DEFAULT FALSE,
+            oferta_descripcion TEXT,
+            precio_original_min REAL,
+            precio_descuento_min REAL,
             url_scrapeada TEXT,
             FOREIGN KEY (viaje_id) REFERENCES viajes(id) ON DELETE CASCADE,
             UNIQUE(viaje_id, fecha_snapshot)
         );
         """)
 
-        # --- TABLAS DE RELACIÓN (Se vinculan a la tabla estática 'viajes') ---
+        # --- TABLAS DE RELACIÓN ---
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS puntos_parada (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,7 +108,7 @@ def crear_tablas(db_path):
         );
         """)
 
-        # --- TABLA DE ERRORES (Sin cambios) ---
+        # --- TABLA DE ERRORES ---
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS errores_procesamiento (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,7 +119,7 @@ def crear_tablas(db_path):
         );
         """)
 
-        # --- ÍNDICES ESTRATÉGICOS ---
+        # --- ÍNDICES ---
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_historial_viajes_viaje_id ON historial_viajes(viaje_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_viajes_ruta_fecha ON viajes(ruta_id, fecha_salida);")
 
