@@ -1,10 +1,11 @@
-# Contenido COMPLETO, FINAL y FUNCIONAL para: app.py
+# Contenido 100% COMPLETO y FINAL para: app.py (con Diseño Compacto y Eficiente)
 
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta, datetime
 import sys
 from pathlib import Path
+import time
 
 # --- 1. CONFIGURACIÓN INICIAL Y CARGA DE DATOS ---
 sys.path.append(str(Path(__file__).resolve().parent))
@@ -32,7 +33,7 @@ def get_price_indicator(price, avg_price):
     diff_percent = ((price - avg_price) / avg_price) * 100
     if diff_percent < -10: return f"<span class='price-indicator price-good'>¡Oferta! {diff_percent:.0f}%</span>"
     elif diff_percent > 10: return f"<span class='price-indicator price-high'>+{diff_percent:.0f}%</span>"
-    else: return f"<span class='price-indicator price-normal'>Precio normal</span>"
+    else: return f"<span class='price-indicator price-normal'>Normal</span>"
 
 def format_time_am_pm(time_str_24h):
     if not time_str_24h or not isinstance(time_str_24h, str): return "N/A"
@@ -42,271 +43,199 @@ def format_time_am_pm(time_str_24h):
         return time_str_24h
 
 def find_round_trips(df_ida, df_vuelta):
-    """
-    Encuentra las mejores combinaciones de viaje redondo.
-    Prioriza la misma empresa, luego las más baratas.
-    """
     combinaciones = []
-    
     empresas_comunes = set(df_ida['empresa']).intersection(set(df_vuelta['empresa']))
     for empresa in empresas_comunes:
         viajes_ida_empresa = df_ida[df_ida['empresa'] == empresa]
         viajes_vuelta_empresa = df_vuelta[df_vuelta['empresa'] == empresa]
-        
         for _, ida_row in viajes_ida_empresa.iterrows():
             for _, vuelta_row in viajes_vuelta_empresa.iterrows():
-                combinaciones.append({
-                    'empresa_ida': empresa, 'empresa_vuelta': empresa,
-                    'precio_total': ida_row['precio_min'] + vuelta_row['precio_min'],
-                    'score_combinado': (ida_row['score'] + vuelta_row['score']) / 2,
-                    'ida': ida_row, 'vuelta': vuelta_row
-                })
-
+                combinaciones.append({'empresa_ida': empresa, 'empresa_vuelta': empresa, 'precio_total': ida_row['precio_min'] + vuelta_row['precio_min'], 'score_combinado': (ida_row['score'] + vuelta_row['score']) / 2, 'ida': ida_row, 'vuelta': vuelta_row})
     top_ida = df_ida.nsmallest(3, 'precio_min')
     top_vuelta = df_vuelta.nsmallest(3, 'precio_min')
     for _, ida_row in top_ida.iterrows():
         for _, vuelta_row in top_vuelta.iterrows():
             if not any(c['ida']['viaje_id'] == ida_row['viaje_id'] and c['vuelta']['viaje_id'] == vuelta_row['viaje_id'] for c in combinaciones):
-                combinaciones.append({
-                    'empresa_ida': ida_row['empresa'], 'empresa_vuelta': vuelta_row['empresa'],
-                    'precio_total': ida_row['precio_min'] + vuelta_row['precio_min'],
-                    'score_combinado': (ida_row['score'] + vuelta_row['score']) / 2,
-                    'ida': ida_row, 'vuelta': vuelta_row
-                })
-    
-    if not combinaciones:
-        return pd.DataFrame()
+                combinaciones.append({'empresa_ida': ida_row['empresa'], 'empresa_vuelta': vuelta_row['empresa'], 'precio_total': ida_row['precio_min'] + vuelta_row['precio_min'], 'score_combinado': (ida_row['score'] + vuelta_row['score']) / 2, 'ida': ida_row, 'vuelta': vuelta_row})
+    if not combinaciones: return pd.DataFrame()
+    return pd.DataFrame(combinaciones).sort_values('score_combinado', ascending=False)
 
-    df_combinaciones = pd.DataFrame(combinaciones)
-    return df_combinaciones.sort_values('score_combinado', ascending=False)
-
-# --- 2. ESTILOS Y HEADER ---
+# --- 2. ESTILOS COMPACTOS Y PROFESIONALES ---
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 :root {
-    --primary-color: #c7463c; --primary-light: #e8554a; --accent-color: #f7931e;
-    --text-primary: #1a1a1a; --text-secondary: #6b7280; --text-muted: #9ca3af;
-    --background: #fefefe; --surface: #ffffff; --surface-hover: #f9fafb;
-    --border: #e5e7eb; --border-light: #f3f4f6; --success: #10b981;
-    --warning: #f59e0b; --danger: #ef4444; --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1); --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --spacing-xs: 8px;
-    --spacing-sm: 16px; --spacing-md: 24px; --spacing-lg: 32px; --spacing-xl: 48px;
-    --transition: all 0.2s ease;
+    --primary-color: #d9534f; --accent-color: #f7931e; --text-primary: #1a1a1a;
+    --text-secondary: #4a5568; --background: #f9fafb; --surface: #ffffff;
+    --border: #e5e7eb; --success: #10b981; --danger: #ef4444; --text-muted: #718096;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05); --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --radius-md: 10px; --radius-lg: 12px; --transition: all 0.2s ease-in-out;
 }
-* { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-.main .block-container { background: var(--background); padding-top: var(--spacing-md); padding-bottom: var(--spacing-lg); max-width: 1200px; }
-.main-header { text-align: center; padding: var(--spacing-md) var(--spacing-lg); margin-bottom: var(--spacing-lg); background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%); border-radius: var(--radius-lg); color: white; box-shadow: var(--shadow-md); }
-.main-header h1 { color: white; font-weight: 700; font-size: 2.25rem; margin-bottom: var(--spacing-xs); text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-.main-header h3 { color: rgba(255,255,255,0.9); font-weight: 400; font-size: 1.1rem; margin: 0; }
-.filter-container { background: var(--surface); border-radius: var(--radius-lg); padding: var(--spacing-lg); margin: var(--spacing-lg) 0; border: 1px solid var(--border); box-shadow: var(--shadow-sm); transition: var(--transition); }
-.filter-container:hover { box-shadow: var(--shadow-md); }
-.destination-card { background: var(--surface); border-radius: var(--radius-md); padding: var(--spacing-md); margin-bottom: var(--spacing-sm); border: 1px solid var(--border-light); border-left: 3px solid var(--primary-color); transition: var(--transition); cursor: pointer; }
-.destination-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); border-left-color: var(--accent-color); background: var(--surface-hover); }
-.company-name { font-weight: 600; color: var(--text-primary); font-size: 1.125rem; margin-bottom: var(--spacing-xs); line-height: 1.4; }
-.price-primary { color: var(--primary-color); font-weight: 700; font-size: 1.75rem; line-height: 1; }
-.trip-details { color: var(--text-secondary); margin-top: var(--spacing-sm); font-size: 0.9rem; line-height: 1.5; display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }
-.trip-detail-item { display: flex; align-items: center; gap: 4px; }
-.price-indicator { font-size: 0.75rem; font-weight: 600; padding: 4px var(--spacing-xs); border-radius: 20px; display: inline-block; margin-top: 4px; }
+* { font-family: 'Inter', sans-serif; }
+.main .block-container { padding-top: 1rem; padding-bottom: 2rem; }
+.main-header { text-align: center; padding: 1.5rem 1rem; margin-bottom: 1rem; background: linear-gradient(135deg, var(--primary-color) 0%, #e8554a 100%); border-radius: var(--radius-lg); color: white; box-shadow: var(--shadow-md); }
+.main-header h1 { font-weight: 700; font-size: 1.8rem; line-height: 1.2; margin: 0; }
+.main-header h3 { font-weight: 400; font-size: 0.95rem; opacity: 0.9; margin-top: 0.25rem; }
+.filter-container { background: var(--surface); border-radius: var(--radius-lg); padding: 1.2rem 1.5rem; margin: 1rem 0; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.destination-card { background: var(--surface); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--border); border-left: 4px solid var(--primary-color); box-shadow: var(--shadow-sm); transition: var(--transition); display: flex; flex-direction: column; justify-content: space-between; }
+.destination-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-left-color: var(--accent-color); }
+.company-name { font-weight: 600; font-size: 1.1rem; color: var(--text-primary); }
+.price-primary { font-weight: 700; font-size: 1.5rem; color: var(--primary-color); }
+.trip-details { font-weight: 500; font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.75rem; }
+.price-indicator { font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 12px; }
 .price-good { background: rgba(16, 185, 129, 0.1); color: var(--success); }
 .price-high { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
 .price-normal { background: rgba(107, 114, 128, 0.1); color: var(--text-muted); }
-.rating-badge { background: var(--accent-color); color: white; padding: 4px var(--spacing-xs); border-radius: 20px; font-size: 0.8rem; font-weight: 600; box-shadow: var(--shadow-sm); display: inline-flex; align-items: center; gap: 2px; }
-.stButton > button { background: var(--primary-color) !important; color: white !important; border: none !important; border-radius: var(--radius-md) !important; padding: 0.75rem 2rem !important; font-weight: 600 !important; font-size: 1rem !important; transition: var(--transition) !important; box-shadow: var(--shadow-sm) !important; text-transform: none !important; letter-spacing: normal !important; }
-.stButton > button:hover { background: var(--primary-light) !important; transform: translateY(-1px) !important; box-shadow: var(--shadow-md) !important; }
-.stTabs [data-baseweb="tab-list"] { gap: var(--spacing-sm); background: var(--surface); padding: var(--spacing-xs); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
-.stTabs [data-baseweb="tab"] { background: transparent; border-radius: var(--radius-sm); padding: var(--spacing-xs) var(--spacing-sm); transition: var(--transition); font-weight: 500; color: var(--text-secondary); }
-.stTabs [aria-selected="true"] { background: var(--primary-color) !important; color: white !important; }
-.section-spacing { margin: var(--spacing-lg) 0; }
-.content-spacing { margin: var(--spacing-md) 0; }
-.success-message { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: var(--success); padding: var(--spacing-sm); border-radius: var(--radius-md); margin: var(--spacing-sm) 0; }
-.warning-message { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: var(--warning); padding: var(--spacing-sm); border-radius: var(--radius-md); margin: var(--spacing-sm) 0; }
+.rating-badge { background: var(--accent-color); color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+.stButton > button { padding: 0.6rem 1.5rem !important; font-size: 0.95rem !important; }
+.visual-separator { height: 1px; background: var(--border); margin: 1rem 0; }
+.skeleton-card { border-radius: var(--radius-lg); padding: 1rem; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.skeleton { background: #e2e8f0; border-radius: 8px; }
+.skeleton.title { height: 20px; width: 60%; margin-bottom: 0.75rem; }
+.skeleton.price { height: 28px; width: 40%; margin-bottom: 1rem; }
+.skeleton.text { height: 14px; width: 80%; }
+.skeleton-card .skeleton { animation: shimmer 1.5s infinite linear; background-image: linear-gradient(90deg, #e2e8f0 0px, #f8fafc 40px, #e2e8f0 80px); background-size: 600px; }
+@keyframes shimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<div class="main-header">
-    <h1>🚌 Chaskiway</h1>
-    <h3>Encuentra tu viaje ideal por el Perú</h3>
-</div>
-""", unsafe_allow_html=True)
+# --- HEADER ---
+st.markdown("""<div class="main-header"><h1>🚌 Chaskiway</h1><h3>Encuentra tu viaje ideal por el Perú</h3></div>""", unsafe_allow_html=True)
 
-# --- 3. ESTRUCTURA DE PESTAÑAS ---
+# --- ESTRUCTURA DE PESTAÑAS ---
 tabs = st.tabs(["🧭 Buscar Viajes", "📊 Analytics"])
 
-# --- 4. PESTAÑA RECOMENDADOR ---
+# --- PESTAÑA RECOMENDADOR ---
 with tabs[0]:
-    st.markdown("<h2 style='text-align: center; color: var(--text-primary); margin-bottom: var(--spacing-sm); font-weight: 600;'>Encuentra tu próxima aventura</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: var(--text-secondary); font-size: 1rem; margin-bottom: var(--spacing-lg);'>Configura tus preferencias y descubre los mejores destinos</p>", unsafe_allow_html=True)
-
     if df_viajes.empty:
         st.error("No hay datos de viajes disponibles. Por favor, ejecuta el pipeline de datos.")
     else:
         with st.container():
             st.markdown('<div class="filter-container">', unsafe_allow_html=True)
             
-            modo_viaje = st.radio(
-                "Tipo de viaje:",
-                ["✈️ Solo Ida", "🔄 Viaje Redondo"],
-                horizontal=True
-            )
+            modo_viaje = st.radio("Tipo de viaje:", ["✈️ Solo Ida", "🔄 Viaje Redondo"], horizontal=True, label_visibility="collapsed")
             
-            st.markdown('<div class="content-spacing"></div>', unsafe_allow_html=True)
-            
-            col_ruta1, col_ruta2 = st.columns(2, gap="large")
-            with col_ruta1:
+            col1, col2, col3 = st.columns(3, gap="medium")
+            with col1:
                 origenes = sorted(df_viajes['origen'].unique())
                 origen_seleccionado = st.selectbox("📍 Origen", origenes, index=origenes.index("Lima") if "Lima" in origenes else 0)
-
-            with col_ruta2:
+            with col2:
                 destinos_posibles = sorted(df_viajes[df_viajes['origen'] == origen_seleccionado]['destino'].unique())
                 if modo_viaje == "✈️ Solo Ida":
                     opciones_destino = ["Cualquier destino"] + destinos_posibles
                 else:
                     opciones_destino = destinos_posibles
                 destino_seleccionado = st.selectbox("🎯 Destino", opciones_destino)
+            with col3:
+                precio_max_disponible = int(df_viajes['precio_min'].max())
+                presupuesto = st.slider("💰 Presupuesto (S/.)", 0, precio_max_disponible, 150, 10)
 
-            st.markdown('<div class="content-spacing"></div>', unsafe_allow_html=True)
-
-            col_fecha1, col_fecha2, col_presupuesto = st.columns(3, gap="large")
+            col_fecha1, col_fecha2, col_clima_placeholder = st.columns(3, gap="medium")
             with col_fecha1:
                 fecha_ida = st.date_input("🗓️ Fecha de ida", value=date(2025, 7, 15), min_value=date.today())
-            with col_fecha2:
-                if modo_viaje == "🔄 Viaje Redondo":
+            if modo_viaje == "🔄 Viaje Redondo":
+                with col_fecha2:
                     fecha_vuelta = st.date_input("🗓️ Fecha de vuelta", value=fecha_ida + timedelta(days=7), min_value=fecha_ida)
-            with col_presupuesto:
-                precio_max_disponible = int(df_viajes['precio_min'].max())
-                presupuesto = st.slider("💰 Presupuesto por tramo (S/.)", 0, precio_max_disponible, 150, 10)
-
+            
             st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="content-spacing"></div>', unsafe_allow_html=True)
-        
         if st.button("🔍 Buscar Viajes", type="primary", use_container_width=True):
-            
+            placeholder = st.empty()
+            with placeholder.container():
+                st.markdown('<div class="results-grid">', unsafe_allow_html=True)
+                for _ in range(3):
+                    st.markdown("""<div class="skeleton-card"><div class="skeleton title"></div><div class="skeleton price"></div><div class="skeleton text"></div></div>""", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            time.sleep(0.5)
+
             # --- LÓGICA PARA MODO SOLO IDA ---
             if modo_viaje == "✈️ Solo Ida":
                 fecha_ida_ts = pd.to_datetime(fecha_ida)
-                
-                resultados = df_viajes[
-                    (df_viajes['origen'] == origen_seleccionado) &
-                    (df_viajes['precio_min'] <= presupuesto) &
-                    (df_viajes['fecha_salida'] == fecha_ida_ts)
-                ].copy()
-
+                resultados = df_viajes[(df_viajes['origen'] == origen_seleccionado) & (df_viajes['precio_min'] <= presupuesto) & (df_viajes['fecha_salida'] == fecha_ida_ts)].copy()
                 if not resultados.empty:
                     resultados['score'] = ((resultados['rating'].fillna(3.0) * 15) - (resultados['precio_min'] * 0.6) + (resultados['tiene_oferta'].fillna(0) * 25))
                     resultados = resultados.sort_values('score', ascending=False)
-
-                st.markdown('<div class="section-spacing"></div>', unsafe_allow_html=True)
+                
+                placeholder.empty()
+                st.markdown('<div class="visual-separator"></div>', unsafe_allow_html=True)
 
                 if not resultados.empty:
                     if destino_seleccionado != "Cualquier destino":
                         resultados_filtrados = resultados[resultados['destino'] == destino_seleccionado]
                         if not resultados_filtrados.empty:
-                            st.markdown(f'<div class="success-message">🎉 Encontramos {len(resultados_filtrados)} opciones de {origen_seleccionado} a {destino_seleccionado}</div>', unsafe_allow_html=True)
+                            st.success(f"🎉 {len(resultados_filtrados)} opciones encontradas para {origen_seleccionado} → {destino_seleccionado}")
+                            st.markdown('<div class="results-grid">', unsafe_allow_html=True)
                             for _, row in resultados_filtrados.iterrows():
-                                price_indicator_html = get_price_indicator(row['precio_min'], row['precio_promedio_ruta'])
-                                hora_salida_ampm = format_time_am_pm(row['hora_salida_programada'])
-                                hora_llegada_ampm = format_time_am_pm(row['hora_llegada_programada'])
                                 st.markdown(f"""
                                 <div class="destination-card">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--spacing-sm);">
-                                        <div class="company-name">{row['empresa']}</div>
-                                        <div class="rating-badge">{row['rating']:.1f} ⭐</div>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--spacing-xs);">
-                                        <div class="price-primary">S/ {row['precio_min']:.0f}</div>
-                                        {price_indicator_html}
-                                    </div>
-                                    <div class="trip-details"><div class="trip-detail-item">🚌 {row['tipo_bus']}</div><div class="trip-detail-item">⏰ {hora_salida_ampm} → {hora_llegada_ampm}</div></div>
-                                </div>
-                                """, unsafe_allow_html=True)
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;"><div class="company-name">{row['empresa']}</div><div class="rating-badge">{row['rating']:.1f} ⭐</div></div>
+                                    <div style="margin-top: 0.75rem;"><div class="price-primary">S/ {row['precio_min']:.0f}</div>{get_price_indicator(row['precio_min'], row['precio_promedio_ruta'])}</div>
+                                    <div class="trip-details"><span>🚌 {row['tipo_bus']}</span><span>⏰ {format_time_am_pm(row['hora_salida_programada'])} → {format_time_am_pm(row['hora_llegada_programada'])}</span></div>
+                                </div>""", unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
                         else:
-                            st.markdown(f'<div class="warning-message">No encontramos viajes a {destino_seleccionado} con tus criterios.</div>', unsafe_allow_html=True)
+                            st.warning(f"No se encontraron viajes a {destino_seleccionado} con tus criterios.")
                     else:
                         destinos_encontrados = resultados['destino'].unique()
-                        st.markdown(f'<div class="success-message">🎉 Encontramos {len(destinos_encontrados)} destinos desde {origen_seleccionado}</div>', unsafe_allow_html=True)
-                        st.info("💡 Haz clic en un destino para ver todas las opciones disponibles")
+                        st.success(f"🎉 ¡Encontramos {len(destinos_encontrados)} destinos desde {origen_seleccionado}!")
                         for destino in destinos_encontrados:
                             viajes_a_destino = resultados[resultados['destino'] == destino]
                             precio_mas_bajo = viajes_a_destino['precio_min'].min()
-                            mejor_rating = viajes_a_destino['rating'].max()
-                            with st.expander(f"📍 **{destino}** • Desde S/ {precio_mas_bajo:.0f} • Rating {mejor_rating:.1f}⭐ • {len(viajes_a_destino)} opciones"):
+                            with st.expander(f"📍 **{destino}** • Desde S/ {precio_mas_bajo:.0f} • {len(viajes_a_destino)} opciones"):
+                                st.markdown('<div class="results-grid">', unsafe_allow_html=True)
                                 for _, row in viajes_a_destino.iterrows():
-                                    price_indicator_html = get_price_indicator(row['precio_min'], row['precio_promedio_ruta'])
-                                    hora_salida_ampm = format_time_am_pm(row['hora_salida_programada'])
-                                    hora_llegada_ampm = format_time_am_pm(row['hora_llegada_programada'])
                                     st.markdown(f"""
                                     <div class="destination-card">
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--spacing-sm);">
-                                            <div class="company-name">{row['empresa']}</div>
-                                            <div class="rating-badge">{row['rating']:.1f} ⭐</div>
-                                        </div>
-                                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--spacing-xs);">
-                                            <div class="price-primary">S/ {row['precio_min']:.0f}</div>
-                                            {price_indicator_html}
-                                        </div>
-                                        <div class="trip-details"><div class="trip-detail-item">🚌 {row['tipo_bus']}</div><div class="trip-detail-item">⏰ {hora_salida_ampm} → {hora_llegada_ampm}</div></div>
-                                    </div>
-                                    """, unsafe_allow_html=True)
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start;"><div class="company-name">{row['empresa']}</div><div class="rating-badge">{row['rating']:.1f} ⭐</div></div>
+                                        <div style="margin-top: 0.75rem;"><div class="price-primary">S/ {row['precio_min']:.0f}</div>{get_price_indicator(row['precio_min'], row['precio_promedio_ruta'])}</div>
+                                        <div class="trip-details"><span>🚌 {row['tipo_bus']}</span><span>⏰ {format_time_am_pm(row['hora_salida_programada'])} → {format_time_am_pm(row['hora_llegada_programada'])}</span></div>
+                                    </div>""", unsafe_allow_html=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
                 else:
-                    st.markdown('<div class="warning-message">😔 No encontramos viajes con tus criterios. Intenta ser más flexible.</div>', unsafe_allow_html=True)
+                    st.warning("😔 No encontramos viajes con tus criterios. Intenta ser más flexible.")
             
             # --- LÓGICA PARA MODO VIAJE REDONDO ---
             elif modo_viaje == "🔄 Viaje Redondo":
-                st.markdown('<div class="section-spacing"></div>', unsafe_allow_html=True)
-                
                 fecha_ida_ts = pd.to_datetime(fecha_ida)
                 df_ida = df_viajes[(df_viajes['origen'] == origen_seleccionado) & (df_viajes['destino'] == destino_seleccionado) & (df_viajes['precio_min'] <= presupuesto) & (df_viajes['fecha_salida'] == fecha_ida_ts)].copy()
-
                 fecha_vuelta_ts = pd.to_datetime(fecha_vuelta)
                 df_vuelta = df_viajes[(df_viajes['origen'] == destino_seleccionado) & (df_viajes['destino'] == origen_seleccionado) & (df_viajes['precio_min'] <= presupuesto) & (df_viajes['fecha_salida'] == fecha_vuelta_ts)].copy()
 
+                placeholder.empty()
+                st.markdown('<div class="visual-separator"></div>', unsafe_allow_html=True)
+
                 if df_ida.empty or df_vuelta.empty:
-                    st.markdown('<div class="warning-message">No se encontraron viajes de ida o de vuelta para las fechas y filtros seleccionados.</div>', unsafe_allow_html=True)
+                    st.warning("No se encontraron viajes de ida o de vuelta para las fechas y filtros seleccionados.")
                 else:
                     df_ida['score'] = ((df_ida['rating'].fillna(3.0) * 15) - (df_ida['precio_min'] * 0.6) + (df_ida['tiene_oferta'].fillna(0) * 25))
                     df_vuelta['score'] = ((df_vuelta['rating'].fillna(3.0) * 15) - (df_vuelta['precio_min'] * 0.6) + (df_vuelta['tiene_oferta'].fillna(0) * 25))
-
                     df_resultados_redondos = find_round_trips(df_ida, df_vuelta)
 
                     if df_resultados_redondos.empty:
-                        st.markdown('<div class="warning-message">No se pudieron encontrar combinaciones de viaje redondo con los criterios actuales.</div>', unsafe_allow_html=True)
+                        st.warning("No se pudieron encontrar combinaciones de viaje redondo con los criterios actuales.")
                     else:
-                        st.markdown(f'<div class="success-message">🎉 ¡Encontramos {len(df_resultados_redondos)} excelentes opciones de viaje redondo!</div>', unsafe_allow_html=True)
-                        
+                        st.success(f"🎉 ¡Encontramos {len(df_resultados_redondos)} excelentes opciones de viaje redondo!")
+                        st.markdown('<div class="results-grid">', unsafe_allow_html=True)
                         for _, combo in df_resultados_redondos.head(10).iterrows():
                             ida = combo['ida']
                             vuelta = combo['vuelta']
-                            
                             st.markdown(f"""
                             <div class="destination-card">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: var(--spacing-sm); margin-bottom: var(--spacing-sm);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">
                                     <div>
-                                        <div class="company-name">
-                                            {ida['empresa'] if ida['empresa'] == vuelta['empresa'] else f"{ida['empresa']} / {vuelta['empresa']}"}
-                                        </div>
+                                        <div class="company-name">{ida['empresa'] if ida['empresa'] == vuelta['empresa'] else f"{ida['empresa']} / {vuelta['empresa']}"}</div>
                                         <div class="rating-badge">{(ida['rating'] + vuelta['rating'])/2:.1f} ⭐ (Promedio)</div>
                                     </div>
-                                    <div style="text-align: right;">
-                                        <span class="price-secondary">Total por persona</span>
-                                        <div class="price-primary">S/ {combo['precio_total']:.0f}</div>
-                                    </div>
+                                    <div style="text-align: right;"><span style="font-size: 0.8rem; color: var(--text-secondary);">Total</span><div class="price-primary">S/ {combo['precio_total']:.0f}</div></div>
                                 </div>
-                                <div class="trip-details" style="margin-top: 0;">
-                                    <div style="flex-basis: 100%; margin-bottom: var(--spacing-xs);">
-                                        <b>✈️ Ida:</b> {format_time_am_pm(ida['hora_salida_programada'])} → {format_time_am_pm(ida['hora_llegada_programada'])}
-                                        <span style="float: right; font-weight: 600;">S/ {ida['precio_min']:.0f}</span>
-                                    </div>
-                                    <div style="flex-basis: 100%;">
-                                        <b>🔄 Vuelta:</b> {format_time_am_pm(vuelta['hora_salida_programada'])} → {format_time_am_pm(vuelta['hora_llegada_programada'])}
-                                        <span style="float: right; font-weight: 600;">S/ {vuelta['precio_min']:.0f}</span>
-                                    </div>
+                                <div class="trip-details" style="margin-top: 0; flex-direction: column; gap: 0.5rem;">
+                                    <div><b>✈️ Ida:</b> {format_time_am_pm(ida['hora_salida_programada'])} → {format_time_am_pm(ida['hora_llegada_programada'])}<span style="float: right; font-weight: 600;">S/ {ida['precio_min']:.0f}</span></div>
+                                    <div><b>🔄 Vuelta:</b> {format_time_am_pm(vuelta['hora_salida_programada'])} → {format_time_am_pm(vuelta['hora_llegada_programada'])}<span style="float: right; font-weight: 600;">S/ {vuelta['precio_min']:.0f}</span></div>
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. PESTAÑA DE ANALYTICS ---
 with tabs[1]:
